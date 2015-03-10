@@ -161,7 +161,7 @@ func TestPacketDot11MgmtBeacon(t *testing.T) {
 			Address2:       net.HardwareAddr{0x0, 0x3, 0x7f, 0x7, 0xa0, 0x16},
 			Address3:       net.HardwareAddr{0x0, 0x0, 0x0, 0x0, 0x0, 0x0},
 			Address4:       net.HardwareAddr(nil),
-			SequenceNumber: 0x26f, FragmentNumber: 0x10,
+			SequenceNumber: 0x9bd, FragmentNumber: 0x0,
 			Checksum: 0xdf00ffac,
 		}
 
@@ -258,7 +258,7 @@ func TestPacketDot11MgmtAction(t *testing.T) {
 
 	want := `PACKET: 97 bytes
 - Layer 1 (32 bytes) = RadioTap	{Contents=[..32..] Payload=[..65..] Version=0 Length=32 Present=264295 TSFT=634199967 Flags=SHORT-PREAMBLE,DATAPAD Rate=6 Mb/s ChannelFrequency=0 MHz ChannelFlags= FHSS=0 DBMAntennaSignal=-41 DBMAntennaNoise=-96 LockQuality=0 TxAttenuation=0 DBTxAttenuation=0 DBMTxPower=0 Antenna=1 DBAntennaSignal=0 DBAntennaNoise=0}
-- Layer 2 (24 bytes) = Dot11	{Contents=[..24..] Payload=[..37..] Type=MgmtAction Proto=0 Flags= DurationID=0 Address1=ff:ff:ff:ff:ff:ff Address2=00:03:7f:07:a0:16 Address3=00:03:7f:07:a0:16 Address4= SequenceNumber=10 FragmentNumber=32 Checksum=0}
+- Layer 2 (24 bytes) = Dot11	{Contents=[..24..] Payload=[..37..] Type=MgmtAction Proto=0 Flags= DurationID=0 Address1=ff:ff:ff:ff:ff:ff Address2=00:03:7f:07:a0:16 Address3=00:03:7f:07:a0:16 Address4= SequenceNumber=42 FragmentNumber=0 Checksum=0}
 - Layer 3 (37 bytes) = Dot11MgmtAction	{Contents=[..37..] Payload=[]}
 `
 	if got := p.String(); got != want {
