@@ -49,15 +49,15 @@ func TestPacketDot11CtrlCTS(t *testing.T) {
 			Flags:            0x12,
 			Rate:             0x30,
 			ChannelFrequency: 0x1478,
-			ChannelFlags:     0x40,
+			ChannelFlags:     0x140,
 			FHSS:             0x0,
-			DBMAntennaSignal: 1,
-			DBMAntennaNoise:  -79,
+			DBMAntennaSignal: -79,
+			DBMAntennaNoise:  -92,
 			LockQuality:      0x0,
 			TxAttenuation:    0x0,
 			DBTxAttenuation:  0x0,
 			DBMTxPower:       0,
-			Antenna:          0xa4,
+			Antenna:          0x1,
 			DBAntennaSignal:  0x0,
 			DBAntennaNoise:   0x0,
 		}
@@ -257,7 +257,7 @@ func TestPacketDot11MgmtAction(t *testing.T) {
 	checkLayers(p, []gopacket.LayerType{LayerTypeRadioTap, LayerTypeDot11, LayerTypeDot11MgmtAction}, t)
 
 	want := `PACKET: 97 bytes
-- Layer 1 (32 bytes) = RadioTap	{Contents=[..32..] Payload=[..65..] Version=0 Length=32 Present=264295 TSFT=634199967 Flags=SHORT-PREAMBLE,DATAPAD Rate=6 Mb/s ChannelFrequency=0 MHz ChannelFlags= FHSS=0 DBMAntennaSignal=-41 DBMAntennaNoise=-96 LockQuality=0 TxAttenuation=0 DBTxAttenuation=0 DBMTxPower=0 Antenna=1 DBAntennaSignal=0 DBAntennaNoise=0}
+- Layer 1 (32 bytes) = RadioTap	{Contents=[..32..] Payload=[..65..] Version=0 Length=32 Present=264295 TSFT=634199967 Flags=SHORT-PREAMBLE,DATAPAD Rate=6 Mb/s ChannelFrequency=0 MHz ChannelFlags= FHSS=0 DBMAntennaSignal=-41 DBMAntennaNoise=-96 LockQuality=0 TxAttenuation=0 DBTxAttenuation=0 DBMTxPower=0 Antenna=1 DBAntennaSignal=0 DBAntennaNoise=0 MCS=0 SpatialStreams=0 Bandwidth=0 HTRate=0 Mb/s}
 - Layer 2 (24 bytes) = Dot11	{Contents=[..24..] Payload=[..37..] Type=MgmtAction Proto=0 Flags= DurationID=0 Address1=ff:ff:ff:ff:ff:ff Address2=00:03:7f:07:a0:16 Address3=00:03:7f:07:a0:16 Address4= SequenceNumber=42 FragmentNumber=0 Checksum=0}
 - Layer 3 (37 bytes) = Dot11MgmtAction	{Contents=[..37..] Payload=[]}
 `

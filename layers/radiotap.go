@@ -41,6 +41,10 @@ const (
 	RadioTapPresentTxFlags
 	RadioTapPresentRtsRetries
 	RadioTapPresentDataRetries
+	RadioTapPresentChannelPlus
+	RadioTapPresentHT
+	RadioTapPresentAMPDUStatus
+	RadioTapPresentVHT
 	RadioTapPresentEXT RadioTapPresent = 1 << 31
 )
 
@@ -97,6 +101,18 @@ func (r RadioTapPresent) RtsRetries() bool {
 }
 func (r RadioTapPresent) DataRetries() bool {
 	return r&RadioTapPresentDataRetries != 0
+}
+func (r RadioTapPresent) ChannelPlus() bool {
+	return r&RadioTapPresentChannelPlus != 0
+}
+func (r RadioTapPresent) HT() bool {
+	return r&RadioTapPresentHT != 0
+}
+func (r RadioTapPresent) AMPDUStatus() bool {
+	return r&RadioTapPresentAMPDUStatus != 0
+}
+func (r RadioTapPresent) VHT() bool {
+	return r&RadioTapPresentVHT != 0
 }
 func (r RadioTapPresent) EXT() bool {
 	return r&RadioTapPresentEXT != 0
@@ -247,7 +263,7 @@ func (a RadioTapFlags) String() string {
 	return ""
 }
 
-type RadioTapRate uint8
+type RadioTapRate uint16
 
 func (a RadioTapRate) String() string {
 	return fmt.Sprintf("%v Mb/s", 0.5*float32(a))
@@ -263,6 +279,26 @@ func decodeRadioTap(data []byte, p gopacket.PacketBuilder) error {
 	d := &RadioTap{}
 	// TODO: Should we set LinkLayer here? And implement LinkFlow
 	return decodingLayerDecoder(d, data, p)
+}
+
+type MCSInfo struct {
+	Name       string
+	CodingRate string
+	Rates      [4]float32
+}
+
+var MCSTable = [10]MCSInfo{
+	MCSInfo{"BPSK", "1/2", [4]float32{6.5, 13.5, 29.3, 58.5}},
+	MCSInfo{"QPSK", "1/2", [4]float32{13, 27, 58.5, 117}},
+	MCSInfo{"QPSK", "3/4", [4]float32{19.5, 40.5, 87.8, 175.5}},
+	MCSInfo{"16-QAM", "1/2", [4]float32{26, 54, 117, 234}},
+	MCSInfo{"16-QAM", "3/4", [4]float32{39, 81, 175.5, 351}},
+	MCSInfo{"64-QAM", "2/3", [4]float32{52, 108, 234, 468}},
+	MCSInfo{"64-QAM", "3/4", [4]float32{58.5, 121.5, 263.3, 526.5}},
+	MCSInfo{"64-QAM", "5/6", [4]float32{65, 135, 292.5, 585}},
+	// 802.11ac only:
+	MCSInfo{"256-QAM", "3/4", [4]float32{78, 162, 351, 702}},
+	MCSInfo{"256-QAM", "5/6", [4]float32{86.7, 180, 390, 780}},
 }
 
 type RadioTap struct {
@@ -302,6 +338,14 @@ type RadioTap struct {
 	DBAntennaSignal uint8
 	// DBAntennaNoise RF noise power at the antenna, decibel difference from an arbitrary, fixed reference point.
 	DBAntennaNoise uint8
+	// MCS 802.11n HT Modulation and coding scheme, if any; supercedes Rate.
+	MCS uint8
+	// SpatialStreams Number of MIMO streams used for this transmission.
+	SpatialStreams uint8
+	// Bandwidth Channel width expressed as MHz (20/40/80)
+	Bandwidth uint8
+	// HTRate Resulting HT bitrate
+	HTRate RadioTapRate
 }
 
 func (m *RadioTap) LayerType() gopacket.LayerType { return LayerTypeRadioTap }
@@ -331,15 +375,17 @@ func (m *RadioTap) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) erro
 		m.Rate = RadioTapRate(data[offset])
 		offset++
 	}
-	if m.Present.FHSS() {
-		m.FHSS = binary.LittleEndian.Uint16(data[offset : offset+2])
-		offset += 2
-	}
 	if m.Present.Channel() {
+		offset += align(offset, 2)
 		m.ChannelFrequency = RadioTapChannelFrequency(binary.LittleEndian.Uint16(data[offset : offset+2]))
 		offset += 2
-		m.ChannelFlags = RadioTapChannelFlags(data[offset])
-		offset++
+		m.ChannelFlags = RadioTapChannelFlags(binary.LittleEndian.Uint16(data[offset : offset+2]))
+		offset += 2
+	}
+	if m.Present.FHSS() {
+		offset += align(offset, 2)
+		m.FHSS = binary.LittleEndian.Uint16(data[offset : offset+2])
+		offset += 2
 	}
 	if m.Present.DBMAntennaSignal() {
 		m.DBMAntennaSignal = int8(data[offset])
@@ -382,15 +428,57 @@ func (m *RadioTap) DecodeFromBytes(data []byte, df gopacket.DecodeFeedback) erro
 	}
 	if m.Present.RxFlags() {
 		// TODO: Implement RxFlags
+		offset += align(offset, 2)
+		offset += 2
 	}
 	if m.Present.TxFlags() {
 		// TODO: Implement TxFlags
+		offset += align(offset, 2)
+		offset += 2
 	}
 	if m.Present.RtsRetries() {
 		// TODO: Implement RtsRetries
+		offset++
 	}
 	if m.Present.DataRetries() {
 		// TODO: Implement DataRetries
+		offset++
+	}
+	if m.Present.ChannelPlus() {
+		// TODO: Implement ChannelPlus
+		offset += align(offset, 4)
+		offset += 8
+	}
+	if m.Present.HT() {
+		ht_flags := uint8(data[offset+1])
+		ht_index := uint8(data[offset+2])
+		m.MCS = ht_index & 0x07
+		m.SpatialStreams = 1 + ((ht_index & 0x18) >> 3)
+		width_shift := ht_flags & 0x03
+		short_gi := (ht_flags & 0x04) >> 2
+		m.Bandwidth = 20 << width_shift
+		var htrate float32
+		htrate = MCSTable[m.MCS].Rates[width_shift] * float32(m.SpatialStreams)
+		if short_gi != 0 {
+			htrate = htrate * 10 / 9
+		}
+		m.HTRate = RadioTapRate(htrate / 0.5)
+		offset += 3
+	} else {
+		m.MCS = 0
+		m.SpatialStreams = 0
+		m.Bandwidth = 0
+		m.HTRate = 0
+	}
+	if m.Present.AMPDUStatus() {
+		// TODO: Implement AMPDUStatus
+		offset += align(offset, 4)
+		offset += 8
+	}
+	if m.Present.VHT() {
+		// TODO: Implement VHT
+		offset += align(offset, 2)
+		offset += 12
 	}
 	if m.Present.EXT() {
 		offset += align(offset, 4)
